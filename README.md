@@ -8,9 +8,9 @@ ROS wrapper for the Hokuyo urg_c library, and custom ShortRangeNav code for inte
 - **urg_c**
 
 Run the following:
-``sudo apt install ros-kinetic-urg-c''
+``sudo apt install ros-kinetic-urg-c``
 
 - **laser_proc**
 
 Run the following:
-``sudo apt install ros-kinetic-laser-proc''
+``sudo apt install ros-kinetic-laser-proc``
