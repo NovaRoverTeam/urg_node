@@ -22,31 +22,9 @@ float Point::operator-(const Point& rhs){
 }
 
 Segment::Segment(const std::vector<Point>& PTS){
-	if (PTS.size() > 0) pts = PTS;
-}
-
-std::vector<float> Segment::centerPt(){
-	std::vector<float> dummy;
-
-	unsigned int n = pts.size();
-	float s_x = 0.0, s_y = 0.0;
-
-	for (unsigned int i = 0; i < n; i++){
-		Point pt = pts[i];
-		s_x += pt.x();
-		s_y += pt.y();
-	}	
-
-	dummy.push_back(s_x / n);
-	dummy.push_back(s_y / n);
-
-	return dummy;
-}
-
-float Segment::var(bool min){
+	pts = PTS;
 	unsigned int n = pts.size();      
 	float s_x = 0.0, s_y = 0.0, s_xx = 0.0, s_xy = 0.0, s_yy = 0.0;
-	float avg_x, avg_y, var_xx, var_xy, var_yy, tr, det;
 
 	for (unsigned int i = 0; i < n; i++){
 		Point pt = pts[i];
@@ -64,14 +42,24 @@ float Segment::var(bool min){
 	var_xx = s_xx / n - avg_x * avg_x;
 	var_xy = s_xy / n - avg_x * avg_y;
 	var_yy = s_yy / n - avg_y * avg_y;
+}
 
-	tr = var_xx + var_yy;
-	det = var_xx * var_yy - var_xy * var_xy;
+float Segment::centerX(){
+	return avg_x;
+}
+
+float Segment::centerY(){
+	return avg_y;
+}
+
+float Segment::axis(bool min){
+	float tr = var_xx + var_yy;
+	float det = var_xx * var_yy - var_xy * var_xy;
 
 	return sqrt(0.5 * tr + (min ? -1 : 1) * 0.5 * sqrt(tr * tr - 4 * det));
 }
-float Segment::length(){
-	unsigned int n = pts.size();
-	Point first = pts[0], last = pts[n-1];
-	return last - first;
+
+float Segment::orient(){
+	return atan2(2*var_xy, var_xx - var_yy) * 90 / M_PI;
 }
+

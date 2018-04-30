@@ -16,10 +16,13 @@ class Point
 
 class Segment
 {
+	private:
+	float avg_x, avg_y, var_xx, var_xy, var_yy;
 	public:
-	Segment(const vector<Point>& PTS);
 	vector<Point> pts;
-	vector<float> centerPt();
-	float var(bool min);
-	float length();
+	Segment(const vector<Point>& PTS);
+	float centerX();
+	float centerY();
+	float axis(bool min);
+	float orient();
 };

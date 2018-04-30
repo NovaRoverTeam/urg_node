@@ -15,8 +15,8 @@ using namespace std;
 
 #define NUM_OF_SCAN_POINTS 683
 #define MIN_RHO 0.07
-#define SEPARATION 0.2
-#define VAR_THRES 0.01
+#define SEPARATION 0.1
+#define AXIS_THRES 0.01
 #define CORNER_ANGLE 1.0
 #define MIN_PTS 5
 #define BOTTOM_BOUND -0.2
@@ -26,7 +26,6 @@ using namespace std;
 #define SIDE_BOUND_FROM_CENTER 2.5
 #define MIN_LENGTH 0.4
 #define MIN_OBJECT_DISTANCE 0.2
-#define OBSTACLE_DISTANCE 1.0
 #define STOP 7
 #define WINDOW 1
 
@@ -86,33 +85,36 @@ vector<Segment> split(const Segment cluster){
 
 	const vector<Point> clusterPt = cluster.pts;
 
-	unsigned int i=0;
-
 	vector<Segment> segments;
 	vector<Point> firstPts, secondPts;
-	vector<Point>::const_iterator b = clusterPt.begin(), it = clusterPt.begin()+WINDOW, e = clusterPt.end();
-	float sumVar;
-	vector<float> vars;
+	vector<Point>::const_iterator b = clusterPt.begin(), it = clusterPt.begin()+1, e = clusterPt.end();//, result = e;
+	float sumaxis, smallest = 1.0;
+	vector<float> axiss;
 
-	while (it < (e - WINDOW)){
+	while (it < e){
 
 		firstPts.assign(b,it);
 		secondPts.assign(it,e);
 
 		Segment firstSeg = Segment(firstPts), secondSeg = Segment(secondPts);
 
-		sumVar = firstSeg.var(true) + secondSeg.var(true);
-		if (!isnan(sumVar)){
-			vars.push_back(sumVar);
+		sumaxis = firstSeg.axis(true) + secondSeg.axis(true);
+		if (!isnan(sumaxis)){
+			axiss.push_back(sumaxis);
 		} else {
-			vars.push_back(1);
+			axiss.push_back(1);
 		}
+		/*if (!isnan(sumaxis) && sumaxis < smallest){
+			smallest = sumaxis;
+			result = it;
+		}*/
+		
 		it++;
 	}
 
-	vector<float>::iterator result = min_element(vars.begin(), vars.end());
+	vector<float>::iterator result = min_element(axiss.begin(), axiss.end());
 
-	it = clusterPt.begin() + distance(vars.begin(), result) + 1;
+	it = clusterPt.begin() + distance(axiss.begin(), result) + 1;
 
 	firstPts.assign(b,it);
 	secondPts.assign(it,e);
@@ -126,7 +128,7 @@ vector<Segment> split(const Segment cluster){
 }
 
 void recursiveSplit(Segment cluster, vector<Segment>* list){
-	if (cluster.var(true) <= VAR_THRES) list->push_back(cluster);
+	if (cluster.axis(true) <= AXIS_THRES) list->push_back(cluster);
 	else {
 		vector<Segment> twoSegs = split(cluster);
 
@@ -158,7 +160,7 @@ int main(int argc, char **argv)
 
 			vector<Segment> listOfSegments0, listOfSegments;
 
-			for (it = clusters.begin() ; it != clusters.end(); ++it){
+			for (it = clusters.begin()+WINDOW ; it != clusters.end()-WINDOW; ++it){
 				recursiveSplit(*it, &listOfSegments0);
 			}
 
@@ -166,10 +168,12 @@ int main(int argc, char **argv)
 				if (it->pts.size() > MIN_PTS) listOfSegments.push_back(*it);
 			}
 
-			for (it = listOfSegments.begin() ; it != listOfSegments.end(); ++it){
-				vector<float> xy = it->centerPt();
-				float major = it->var(false), length = it->length();
-				//ROS_INFO("%f", length/major);
+			for (it = listOfSegments.begin(); it != listOfSegments.end(); ++it){
+				float x = it->centerX();
+				float y = it->centerY();
+				float major = it->axis(false);
+				float orient = it->orient();
+				ROS_INFO("%f %f %f %f", x, y, major, orient);
 				//
 			}
 
@@ -200,7 +204,7 @@ int main(int argc, char **argv)
 			}
 
 
-			//ROS_INFO("%u", listOfSegments.size());
+			ROS_INFO("---");
 
 
 			nav.data |= STOP;
