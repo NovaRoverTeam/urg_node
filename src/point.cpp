@@ -6,11 +6,7 @@ Point::Point(unsigned int NUM,float THETA, float RHO){
 	theta=THETA;
 	rho=RHO;
 }
-Point::Point(float X, float Y){
-	num=0;
-	theta=atan2(Y,X);
-	rho=sqrt(X*X+Y*Y);
-}
+
 float Point::x(){
 	return rho*cos(theta);
 }
@@ -23,7 +19,7 @@ float Point::operator-(const Point& rhs){
 
 Segment::Segment(const std::vector<Point>& PTS){
 	pts = PTS;
-	unsigned int n = pts.size();      
+	n = pts.size();      
 	float s_x = 0.0, s_y = 0.0, s_xx = 0.0, s_xy = 0.0, s_yy = 0.0;
 
 	for (unsigned int i = 0; i < n; i++){
@@ -52,6 +48,10 @@ float Segment::centerY(){
 	return avg_y;
 }
 
+float Segment::distance(){
+	return sqrt(avg_x*avg_x+avg_y*avg_y);
+}
+
 float Segment::axis(bool min){
 	float tr = var_xx + var_yy;
 	float det = var_xx * var_yy - var_xy * var_xy;
@@ -61,5 +61,10 @@ float Segment::axis(bool min){
 
 float Segment::orient(){
 	return atan2(2*var_xy, var_xx - var_yy) * 90 / M_PI;
+}
+
+float Segment::length(){
+	Point a = pts[0], b = pts[n-1];
+	return a - b; 
 }
 

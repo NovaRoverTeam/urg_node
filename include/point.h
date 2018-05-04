@@ -17,6 +17,7 @@ class Point
 class Segment
 {
 	private:
+	unsigned int n;
 	float avg_x, avg_y, var_xx, var_xy, var_yy;
 	public:
 	vector<Point> pts;
@@ -25,4 +26,6 @@ class Segment
 	float centerY();
 	float axis(bool min);
 	float orient();
+	float length();
+	float distance();
 };

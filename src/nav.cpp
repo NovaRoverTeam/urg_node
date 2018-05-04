@@ -15,7 +15,7 @@ using namespace std;
 
 #define NUM_OF_SCAN_POINTS 683
 #define MIN_RHO 0.07
-#define SEPARATION 0.1
+#define SEPARATION 0.05
 #define AXIS_THRES 0.01
 #define CORNER_ANGLE 1.0
 #define MIN_PTS 5
@@ -145,15 +145,16 @@ int main(int argc, char **argv)
 	ros::Publisher processPub=n.advertise<sensor_msgs::LaserScan>("/processScan",1);
 	ros::Publisher navPub=n.advertise<std_msgs::Byte>("/shortRangeNav",1);
 
+	std_msgs::Byte nav;
+	nav.data = 0;
+
 	while(ros::ok())
 	{
 		if (dataReady){
 
 			sensor_msgs::LaserScan processed;
-			std_msgs::Byte nav;
+			
 			vector<Segment>::iterator it;
-
-			int smallObjectDetected = 0, largeObjectDetected = 0;
 
 			//ROS_INFO("%u",pts.size());
 			vector<Segment> clusters = cluster(pts);
@@ -171,10 +172,24 @@ int main(int argc, char **argv)
 			for (it = listOfSegments.begin(); it != listOfSegments.end(); ++it){
 				float x = it->centerX();
 				float y = it->centerY();
-				float major = it->axis(false);
-				float orient = it->orient();
-				ROS_INFO("%f %f %f %f", x, y, major, orient);
-				//
+				float distance = it->distance();
+				//float major = it->axis(false);
+				//float length = it->length();
+				//ROS_INFO("%f %f %f %f", x, y, distance, major/length);
+				if (distance < 0.9){
+					nav.data |= 8; //go backward
+				}
+				if (x < 1.3){
+					if (y > 0.15 && y < 1.0){
+						nav.data |= 4; //No Left Turn
+					}
+					if (y > 0.4 && y < -0.4){
+						nav.data |= 2; //No Driving Forward
+					}
+					if (y > -1.0 && y < -0.15){
+						nav.data |= 1; //No Right Turn
+					}
+				}
 			}
 
 
@@ -203,12 +218,11 @@ int main(int argc, char **argv)
 				}
 			}
 
+			//ROS_INFO("---");
 
-			ROS_INFO("---");
-
-
-			nav.data |= STOP;
 			navPub.publish(nav);
+			
+			nav.data = nav.data << 4;
 
 			processPub.publish(processed);
 
