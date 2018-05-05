@@ -1,9 +1,9 @@
 #include "point.h"
 #include <math.h>
 
-Point::Point(unsigned int NUM,float THETA, float RHO){
+Point::Point(unsigned int NUM, float THETA, float RHO){
 	num=NUM;
-	theta=THETA;
+	theta=THETA + M_PI/2;
 	rho=RHO;
 }
 

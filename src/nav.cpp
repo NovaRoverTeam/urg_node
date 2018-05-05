@@ -17,20 +17,13 @@ using namespace std;
 #define MIN_RHO 0.07
 #define SEPARATION 0.05
 #define AXIS_THRES 0.01
-#define CORNER_ANGLE 1.0
 #define MIN_PTS 5
-#define BOTTOM_BOUND -0.2
-#define UPPER_BOUND 3.2
-#define FLOORLINE_BOTTOM_BOUND 1.0
-#define FLOORLINE_UPPER_BOUND 2.0
-#define SIDE_BOUND_FROM_CENTER 2.5
-#define MIN_LENGTH 0.4
-#define MIN_OBJECT_DISTANCE 0.2
 #define STOP 7
 #define WINDOW 1
 
 
 float angle_min, angle_increment;
+float rviz_angle_min = -M_PI/6, rviz_angle_max = 7*M_PI/6;
 bool dataReady;
 vector<Point> pts;
 
@@ -179,14 +172,14 @@ int main(int argc, char **argv)
 				if (distance < 0.9){
 					nav.data |= 8; //go backward
 				}
-				if (x < 1.3){
-					if (y > 0.15 && y < 1.0){
+				if (y < 1.3){
+					if (x > -1.0 && x < -0.15){
 						nav.data |= 4; //No Left Turn
 					}
-					if (y > 0.4 && y < -0.4){
+					if (x > 0.4 && x < -0.4){
 						nav.data |= 2; //No Driving Forward
 					}
-					if (y > -1.0 && y < -0.15){
+					if (x > 0.15 && x < 1.0){
 						nav.data |= 1; //No Right Turn
 					}
 				}
@@ -197,8 +190,8 @@ int main(int argc, char **argv)
 			//populate the LaserScan message
 			processed.header.stamp = scan_time;
 			processed.header.frame_id = "laser";
-			processed.angle_min = -2.09234976768;
-			processed.angle_max = 2.09234976768;
+			processed.angle_min = rviz_angle_min;
+			processed.angle_max = rviz_angle_max;
 			processed.angle_increment = 0.00613592332229;
 			processed.time_increment = 2.44140683208e-05;
 			processed.range_min = 0.0;
