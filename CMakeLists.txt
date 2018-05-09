@@ -12,6 +12,8 @@ generate_dynamic_reconfigure_options(cfg/URG.cfg)
 
 add_message_files(FILES
   Status.msg
+  Segment.msg
+  SegmentArray.msg
 )
 
 generate_messages(
@@ -46,10 +48,13 @@ target_link_libraries(urg_node urg_node_driver ${catkin_LIBRARIES})
 add_executable(getID src/getID.cpp)
 target_link_libraries(getID urg_c_wrapper ${catkin_LIBRARIES})
 
-## Declare nav (Short-range Navigation)
-add_executable(short_range_nav src/nav.cpp src/point.cpp)
-target_link_libraries(short_range_nav ${catkin_LIBRARIES})
+## Declare pt_process (LIDAR Data Point Processing)
+add_executable(pt_process src/pt_proc.cpp src/point.cpp)
+target_link_libraries(pt_process ${catkin_LIBRARIES})
 
+## Declare nav (Short-range Navigation)
+add_executable(short_range_nav src/nav.cpp)
+target_link_libraries(short_range_nav ${catkin_LIBRARIES})
 
 
 ## Mark executables and/or libraries for installation

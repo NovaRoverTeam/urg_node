@@ -6,136 +6,58 @@
 #include <ros/console.h>
 #include "point.h"
 
-#include "sensor_msgs/LaserScan.h"
+#include "urg_node/SegmentArray.h"
 #include "std_msgs/Byte.h"
 
 using namespace std;
 
-// number of range data points = 683
-
-#define NUM_OF_SCAN_POINTS 683
-#define MIN_RHO 0.07
-#define SEPARATION 0.05
-#define AXIS_THRES 0.01
-#define MIN_PTS 5
 #define STOP 7
-#define WINDOW 1
+#define GOBACK 8
+#define NO_GO_RADIUS 0.9
 
-
-float angle_min, angle_increment;
-float rviz_angle_min = -M_PI/6, rviz_angle_max = 7*M_PI/6;
 bool dataReady;
-vector<Point> pts;
 
+urg_node::SegmentArray all;
 
-void laserCallback(const sensor_msgs::LaserScan::ConstPtr& scan) {
-	angle_min = scan->angle_min;
-	angle_increment = scan->angle_increment;
-
-	for(int i = 0; i < NUM_OF_SCAN_POINTS; i++) {
-		float scan_data = scan->ranges[i];
-		if (scan_data > MIN_RHO & !isnan(scan_data)){
-			pts.push_back(Point(i,angle_min + i * angle_increment, scan_data));
-		}
-	}
+void segmentCallback(const urg_node::SegmentArray::ConstPtr& msg) {
+	all = *msg;
 	dataReady = true;
 }
 
-vector<Segment> cluster(const vector<Point>& pts){
+vector<float> closestPointOf(const urg_node::Segment& segment){
 
-	vector<Point> temp;
-	vector<Point>::const_iterator it0 = pts.begin(), it1 = pts.begin()+1;
-	vector<Segment> clusters, clusters0;
+	vector<float> temp;
 
-	while(it0 < pts.end() & it1 < pts.end()){
-		Point pt0 = *(it1 - 1), pt1 = *it1;
+	float x = segment.x;
+	float y = segment.y;
+	float length = segment.length;
+	float orientation = segment.orientation;
 
-		float a = pt1 - pt0;
+	float headX = x - 0.5*length*cos(orientation);
+	float tailX = x + 0.5*length*cos(orientation);
+	float headY = y - 0.5*length*sin(orientation);
+	float tailY = y + 0.5*length*sin(orientation);
 
-		bool close = a <= SEPARATION;
+	float head = sqrt(headX*headX+headY*headY);
+	float tail = sqrt(tailX*tailX+tailY*tailY);
 
-		if (close){
-			it1++;
-		} else {
-			temp.assign(it0,it1);
-			clusters0.push_back(Segment(temp));
-			it0 = it1 + 1;
-			it1 = it0 + 1;
-		}
+	if (head < tail){
+		temp.push_back(head);
+		temp.push_back(headX);
+		temp.push_back(headY);
+	} else {
+		temp.push_back(tail);
+		temp.push_back(tailX);
+		temp.push_back(tailY);
 	}
-
-	temp.assign(it0,it1);
-	clusters0.push_back(Segment(temp));
-
-	for (unsigned int i = 0; i < clusters0.size(); i++){
-		clusters.push_back(clusters0[i]);
-	}
-
-	return clusters;
-}
-
-vector<Segment> split(const Segment cluster){
-
-	const vector<Point> clusterPt = cluster.pts;
-
-	vector<Segment> segments;
-	vector<Point> firstPts, secondPts;
-	vector<Point>::const_iterator b = clusterPt.begin(), it = clusterPt.begin()+1, e = clusterPt.end();//, result = e;
-	float sumaxis, smallest = 1.0;
-	vector<float> axiss;
-
-	while (it < e){
-
-		firstPts.assign(b,it);
-		secondPts.assign(it,e);
-
-		Segment firstSeg = Segment(firstPts), secondSeg = Segment(secondPts);
-
-		sumaxis = firstSeg.axis(true) + secondSeg.axis(true);
-		if (!isnan(sumaxis)){
-			axiss.push_back(sumaxis);
-		} else {
-			axiss.push_back(1);
-		}
-		/*if (!isnan(sumaxis) && sumaxis < smallest){
-			smallest = sumaxis;
-			result = it;
-		}*/
-		
-		it++;
-	}
-
-	vector<float>::iterator result = min_element(axiss.begin(), axiss.end());
-
-	it = clusterPt.begin() + distance(axiss.begin(), result) + 1;
-
-	firstPts.assign(b,it);
-	secondPts.assign(it,e);
-
-	Segment firstSeg = Segment(firstPts), secondSeg = Segment(secondPts);
-
-	segments.push_back(firstSeg);
-	segments.push_back(secondSeg);
-
-	return segments;
-}
-
-void recursiveSplit(Segment cluster, vector<Segment>* list){
-	if (cluster.axis(true) <= AXIS_THRES) list->push_back(cluster);
-	else {
-		vector<Segment> twoSegs = split(cluster);
-
-		recursiveSplit(twoSegs[0], list);
-		recursiveSplit(twoSegs[1], list);
-	}
+	return temp;
 }
 
 int main(int argc, char **argv)
 {
 	ros::init(argc, argv, "short_range_nav");
 	ros::NodeHandle n;
-	ros::Subscriber scanSub = n.subscribe<sensor_msgs::LaserScan>("/scan", 1, laserCallback);
-	ros::Publisher processPub=n.advertise<sensor_msgs::LaserScan>("/processScan",1);
+	ros::Subscriber segmentSub = n.subscribe<urg_node::SegmentArray>("/segments", 1, segmentCallback);
 	ros::Publisher navPub=n.advertise<std_msgs::Byte>("/shortRangeNav",1);
 
 	std_msgs::Byte nav;
@@ -144,34 +66,19 @@ int main(int argc, char **argv)
 	while(ros::ok())
 	{
 		if (dataReady){
+			dataReady = false;
 
-			sensor_msgs::LaserScan processed;
-			
-			vector<Segment>::iterator it;
+			urg_node::Segment segment;
 
-			//ROS_INFO("%u",pts.size());
-			vector<Segment> clusters = cluster(pts);
-
-			vector<Segment> listOfSegments0, listOfSegments;
-
-			for (it = clusters.begin()+WINDOW ; it != clusters.end()-WINDOW; ++it){
-				recursiveSplit(*it, &listOfSegments0);
-			}
-
-			for (it = listOfSegments0.begin() ; it != listOfSegments0.end(); ++it){
-				if (it->pts.size() > MIN_PTS) listOfSegments.push_back(*it);
-			}
-
-			for (it = listOfSegments.begin(); it != listOfSegments.end(); ++it){
-				float x = it->centerX();
-				float y = it->centerY();
-				float distance = it->distance();
-				//float major = it->axis(false);
-				//float length = it->length();
-				//ROS_INFO("%f %f %f %f", x, y, distance, major/length);
-				if (distance < 0.9){
-					nav.data |= 8; //go backward
+			for(int i = 0; i < all.segments.size(); i++) {
+				segment = all.segments[i];
+				//ROS_INFO_STREAM("x: " << data.x << " y: " << data.y << " length: " << data.length << " Orientation: " << data.orientation);
+				if (closestPointOf(segment)[0] < NO_GO_RADIUS){
+					nav.data |= GOBACK; //go backward
 				}
+
+				float x = closestPointOf(segment)[1];
+				float y = closestPointOf(segment)[2];
 				if (y < 1.3){
 					if (x > -1.0 && x < -0.15){
 						nav.data |= 4; //No Left Turn
@@ -184,46 +91,9 @@ int main(int argc, char **argv)
 					}
 				}
 			}
-
-
-			ros::Time scan_time = ros::Time::now();
-			//populate the LaserScan message
-			processed.header.stamp = scan_time;
-			processed.header.frame_id = "laser";
-			processed.angle_min = rviz_angle_min;
-			processed.angle_max = rviz_angle_max;
-			processed.angle_increment = 0.00613592332229;
-			processed.time_increment = 2.44140683208e-05;
-			processed.range_min = 0.0;
-			processed.range_max = 6.0;
-
-			processed.ranges.resize(NUM_OF_SCAN_POINTS);
-    		processed.intensities.resize(NUM_OF_SCAN_POINTS);
-
-			for (unsigned int i = 0; i < listOfSegments.size(); i++){
-				Segment seg = listOfSegments[i];
-				for (unsigned int j = 0; j < seg.pts.size(); j++){
-
-					Point point = seg.pts[j];
-
-					processed.ranges[point.num] = point.rho;
-					processed.intensities[point.num] = i;
-				}
-			}
-
-			//ROS_INFO("---");
-
-			navPub.publish(nav);
-			
+			navPub.publish(nav);			
 			nav.data = nav.data << 4;
-
-			processPub.publish(processed);
-
-			pts.clear();
-			dataReady = false;
 		}
-
-
 		ros::spinOnce();
 	}
 }

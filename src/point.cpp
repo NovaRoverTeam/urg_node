@@ -60,7 +60,7 @@ float Segment::axis(bool min){
 }
 
 float Segment::orient(){
-	return atan2(2*var_xy, var_xx - var_yy) * 90 / M_PI;
+	return 0.5*atan2(2*var_xy, var_xx - var_yy);
 }
 
 float Segment::length(){
